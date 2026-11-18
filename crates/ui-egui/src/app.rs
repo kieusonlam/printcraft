@@ -118,6 +118,8 @@ impl PdfCraftApp {
             ui_scale_applied: None,
             flatten_fill_sign_on_save: false,
             ask_to_lock_signatures: true,
+            timestamp_server: String::new(),
+            timestamp_transport: None,
             placed_signatures: Default::default(),
             pending_lock: None,
             lock_answered: None,

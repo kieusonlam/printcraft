@@ -889,6 +889,38 @@ fn card_fill_and_sign(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx:
     ctx.label_secondary(ui, tl!("Text, marks and signatures become part of the page. Other comments stay editable."), t);
     ui.add_space(8.0);
     date_format(ui, app, t, ctx);
+    if app.can_timestamp() {
+        ui.add_space(8.0);
+        timestamp_server(ui, app, t, ctx);
+    }
+}
+
+/// The RFC 3161 server that stamps digital signatures (hidden where the build can't reach one).
+fn timestamp_server(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut PrefSearchContext) {
+    ctx.label(ui, tl!("Digital signatures"), theme::semibold(12.5), t.text);
+    ui.horizontal(|ui| {
+        let label = ctx.label_primary(ui, tl!("Timestamp server"), t);
+        ui.add(
+            crate::widgets::line(&mut app.timestamp_server).hint_text("https://").desired_width(320.0).char_limit(crate::MAX_TIMESTAMP_SERVER_CHARS),
+        )
+        .labelled_by(label.id);
+    });
+    match crate::timestamp_server(&app.timestamp_server) {
+        Err(e) => {
+            // The same red as an unusable date pattern.
+            ctx.label(ui, tl!(e), theme::regular(13.0), Color32::from_rgb(0xD1, 0x3B, 0x3B));
+        }
+        Ok(None) => {
+            ctx.label_secondary(ui, tl!("Empty: the signing time is this computer's clock, and signing never uses the network."), t);
+        }
+        Ok(Some(_)) => {
+            ctx.label_secondary(
+                ui,
+                tl!("Each digital signature gets a timestamp from this server. Only a hash of the signature is sent, never the document. If the server doesn't answer, the document is not signed."),
+                t,
+            );
+        }
+    }
 }
 
 /// Content for Card 6: JavaScript

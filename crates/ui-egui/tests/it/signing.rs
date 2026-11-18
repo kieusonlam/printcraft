@@ -909,3 +909,69 @@ fn signing_preserves_destination_opening_attributes() {
     assert_eq!(xattr::get(&dest, "com.apple.quarantine").unwrap(), Some(b"0082;1234;Preview;".to_vec()));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A deterministic RFC 3161 authority standing in for Preferences ▸ Timestamp server: it answers
+/// every request at a fixed time with a test identity, and counts the requests it gets.
+fn test_timestamp_server(calls: std::sync::Arc<std::sync::atomic::AtomicUsize>) -> pdfcraft_ui_egui::TimestampTransport {
+    use pdfcraft_engine::sign::{self, timestamp};
+    let tsa = sign::pkcs12::open(include_bytes!("../../../sign/tests/data/ec-p256.p12"), "test").expect("test TSA identity");
+    std::sync::Arc::new(move |url: &str, request: &[u8]| {
+        assert_eq!(url, "https://tsa.example.vn/tsa", "the address from Preferences, trimmed");
+        calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let query = timestamp::parse_request(request).map_err(|e| e.to_string())?;
+        let at = sign::Time { year: 2026, month: 11, day: 18, hour: 8, minute: 3, second: 21 };
+        timestamp::respond(
+            timestamp::TimestampSigner { key: &tsa.key, certificate: &tsa.certificate, chain: &tsa.chain, digest: sign::DigestAlg::Sha256 },
+            timestamp::TimestampIssuance { query: &query, policy: "1.2.3.4", generation_time: at, serial: 7 },
+        )
+        .map_err(|e| e.to_string())
+    })
+}
+
+#[test]
+fn a_timestamp_server_stamps_the_signature_instead_of_the_computer_clock() {
+    let dir = dir();
+    let mut h = harness(dir.clone());
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    h.state_mut().set_timestamp_transport(test_timestamp_server(calls.clone()));
+    h.state_mut().timestamp_server = "  https://tsa.example.vn/tsa ".into();
+    create_signing_id(&mut h);
+    sign_with_created_id(&mut h, &dir);
+    assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1, "one request per signature");
+    let s = h.state();
+    let signature = s.session.get(s.views[0].id).and_then(|d| d.signatures.iter().find(|x| x.signed).cloned()).expect("signed");
+    assert!(signature.timestamp, "the RFC 3161 token is embedded: {:?}", signature.details);
+    let said: Vec<&str> = signature.details.iter().map(|d| d.message.as_str()).collect();
+    assert!(said.contains(&"The signature includes an embedded timestamp."), "{said:?}");
+    assert!(!said.contains(&"Signing time is from the clock on the signer's computer."), "{said:?}");
+    // The setting is kept with the other preferences, trimmed.
+    let saved: serde_json::Value = serde_json::from_str(&s.persist()).unwrap();
+    assert_eq!(saved["timestamp_server"], "https://tsa.example.vn/tsa");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_timestamp_server_that_fails_leaves_the_document_unsigned() {
+    let dir = dir();
+    let mut h = harness(dir.clone());
+    h.state_mut().set_timestamp_transport(std::sync::Arc::new(|_: &str, _: &[u8]| Err("timed out".to_string())));
+    h.state_mut().timestamp_server = "https://tsa.example.vn/tsa".into();
+    create_signing_id(&mut h);
+    h.state_mut().sign_draft.as_mut().unwrap().password = "secret12".into();
+    support::outside_menus(&h, "Sign").click();
+    h.run_steps(6);
+    assert!(!dir.join("contract_signed.pdf").exists(), "no file without the timestamp asked for");
+    let s = h.state();
+    assert!(!s.session.get(s.views[0].id).is_some_and(|d| d.signatures.iter().any(|x| x.signed)));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn without_a_transport_the_server_is_never_used() {
+    let mut app = PdfCraftApp::new();
+    assert!(!app.can_timestamp(), "tests and the web build have no network");
+    app.restore(r#"{"timestamp_server": "file:///etc/passwd"}"#);
+    assert_eq!(app.timestamp_server, "", "a restored address that isn't http(s) is dropped");
+    app.restore(r#"{"timestamp_server": " http://tsa.example.vn "}"#);
+    assert_eq!(app.timestamp_server, "http://tsa.example.vn");
+}

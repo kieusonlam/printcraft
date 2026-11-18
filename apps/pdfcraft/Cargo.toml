@@ -25,6 +25,10 @@ serde_json = { workspace = true }
 log = { workspace = true }
 # The log timestamp goes through chrono (no hand-rolled calendar code).
 chrono = { workspace = true }
+# Preferences ▸ Timestamp server (src/tsa.rs): one RFC 3161 request per signature, only when a
+# server is set. Same version and features as craft-update's (rustls, the OS's trusted roots),
+# so nothing new enters the tree.
+ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring", "platform-verifier"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Finder double-click / Open With / Dock drops arrive as Apple events (#73); this small audited

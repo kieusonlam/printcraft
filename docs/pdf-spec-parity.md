@@ -104,7 +104,7 @@ are borrowed; PDF 2.0 additions and most subset standards are missing. **150–2
 |---|---|---|
 | Sub-filters `adbe.pkcs7.detached`, `ETSI.CAdES.detached`; read `adbe.pkcs7.sha1`, `adbe.x509.rsa_sha1` | yes | yes |
 | PAdES B-B | yes | yes (PKCS #12, macOS Keychain, Windows store with PIN) |
-| PAdES B-T (signature timestamp), document timestamps | yes, with configured TSA | partial: works when a TSA is given; no timestamp-server preferences |
+| PAdES B-T (signature timestamp), document timestamps | yes, with configured TSA | partial: Preferences ▸ Timestamp server stamps signatures in the desktop app; not yet in the agent tools |
 | PAdES B-LT, B-LTA (DSS/VRI, OCSP/CRL) | yes, fetched online | partial: evidence supplied by the caller; no online fetching |
 | DocMDP certification | yes | yes |
 | FieldMDP (lock fields) | yes | none |

@@ -18,6 +18,7 @@ use crate::{PdfCraftApp, icons, widgets};
 
 mod dialog;
 mod panel;
+mod timestamp;
 
 #[cfg(test)]
 use dialog::detail_lines;
@@ -25,6 +26,7 @@ use dialog::graphic_of;
 pub(crate) use dialog::{appearance_labels, dialog, status_captions};
 pub(crate) use panel::{CertAction, banner, cert_viewer, panel, signature_status_style};
 pub use panel::{CertTab, CertViewer, PanelAction, certificate_pem};
+pub use timestamp::{MAX_TIMESTAMP_SERVER_CHARS, TimestampTransport, timestamp_server};
 
 /// A digital ID the app knows about (Acrobat: Digital ID files). The file stays where it is;
 /// its password is asked for at each signing.
@@ -542,6 +544,8 @@ impl PdfCraftApp {
         #[cfg(not(target_arch = "wasm32"))]
         let folder = self.session.get(doc_id).and_then(|d| d.path.clone());
         let stem = name.trim_end_matches(".pdf").trim_end_matches(".PDF").to_string();
+        // Preferences ▸ Timestamp server, as set when Sign was pressed.
+        let tsa = self.timestamp_authority();
         let sign_and_save = move |app: &mut Self, path: PathBuf| -> Result<(), String> {
             // Sign what was typed while the save panel was open, too (#166); a refused value
             // has said why already.
@@ -552,7 +556,13 @@ impl PdfCraftApp {
             // the step stays pending, and is taken back if signing ends without a signature.
             let field = opts.field.clone();
             let pending = app.presign.take();
-            let signed = match app.session.sign(doc_id, &id, opts) {
+            // With a server, the signature carries its RFC 3161 timestamp (PAdES B-T). If the
+            // server fails, nothing is signed: never a signature without the timestamp asked for.
+            let signed = match &tsa {
+                Some(tsa) => app.session.sign_with_timestamp(doc_id, &id, opts, tsa),
+                None => app.session.sign(doc_id, &id, opts),
+            };
+            let signed = match signed {
                 Ok(s) => s,
                 Err(e) => {
                     app.presign = pending;

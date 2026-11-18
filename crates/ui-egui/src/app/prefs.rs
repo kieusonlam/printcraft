@@ -119,6 +119,7 @@ impl PdfCraftApp {
             "ui_scale": self.ui_scale,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
             "ask_to_lock_signatures": self.ask_to_lock_signatures,
+            "timestamp_server": self.timestamp_server.trim(),
             "fill_text_size": self.fill_text_size,
             "fill_text_border": self.fill_text_default.width,
             "fill_text_border_color": self.fill_text_default.color,
@@ -430,6 +431,10 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["ask_to_lock_signatures"].as_bool() {
             self.ask_to_lock_signatures = on;
+        }
+        // Restored settings are untrusted: only a well-formed http(s) address is kept.
+        if let Some(Ok(Some(url))) = v["timestamp_server"].as_str().map(crate::timestamp_server) {
+            self.timestamp_server = url;
         }
         if let Some(size) = v["fill_text_size"].as_f64().and_then(fill_sign::valid_text_size) {
             self.fill_text_size = size;

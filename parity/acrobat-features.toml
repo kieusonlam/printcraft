@@ -6364,11 +6364,11 @@ title = "Configure timestamp servers"
 area = "H"
 tier = "P1"
 milestone = "M9"
-status = "planned"
+status = "partial"
 commands = []
 tools = []
-evidence = []
-notes = ""
+evidence = ["crates/ui-egui/tests/it/signing.rs::a_timestamp_server_stamps_the_signature_instead_of_the_computer_clock", "crates/ui-egui/tests/it/signing.rs::a_timestamp_server_that_fails_leaves_the_document_unsigned", "crates/ui-egui/tests/it/signing.rs::without_a_transport_the_server_is_never_used"]
+notes = "Preferences ▸ Fill & Sign ▸ Timestamp server (one RFC 3161 server, empty by default) stamps every digital signature in the desktop app; the web build has no transport and hides it. Missing: a sign_document tool argument, several servers, authentication."
 
 [[feature]]
 id = "sign.pades-bt"

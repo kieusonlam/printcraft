@@ -51,7 +51,7 @@ pub use content_ui::TextDraft;
 pub use create_ui::Clip;
 pub use link_ui::LinkDraft;
 pub use optimize_ui::{OptimizeDraft, OptimizeTab};
-pub use sign_ui::{DigitalIdEntry, SignDraft, SignGraphic, SignStep};
+pub use sign_ui::{DigitalIdEntry, MAX_TIMESTAMP_SERVER_CHARS, SignDraft, SignGraphic, SignStep, TimestampTransport, timestamp_server};
 mod bidi;
 mod dialogs;
 pub use edit_text_ui::{CropMode, DragTarget, ImageDrag, ImageHandle, ImageSelection};
@@ -408,6 +408,11 @@ pub struct PdfCraftApp {
     /// Ask on the first save after Fill & Sign places a signature or initials whether to lock
     /// them into the page (#2149). Off once the user says not to ask again.
     pub ask_to_lock_signatures: bool,
+    /// Preferences ▸ Timestamp server: the RFC 3161 server that stamps digital signatures, as
+    /// typed. Empty (the default) signs without the network.
+    pub timestamp_server: String,
+    /// How the desktop app reaches [`Self::timestamp_server`]; none in the web build and tests.
+    pub(crate) timestamp_transport: Option<sign_ui::TimestampTransport>,
     /// Documents with a Fill & Sign signature placed since their last save, asked about on
     /// saving (#2149). Not part of the recovery data: a recovered document isn't asked.
     pub(crate) placed_signatures: std::collections::HashSet<pdfcraft_engine::DocId>,

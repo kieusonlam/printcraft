@@ -46,6 +46,7 @@ mod settings;
 mod single_instance;
 mod startup;
 mod text_scale;
+mod tsa;
 #[cfg(test)]
 #[path = "windows_manifest.rs"]
 mod windows_manifest;
@@ -485,6 +486,8 @@ fn app_creator<'a>(
             app.motion.source = Some(motion::source());
         }
         app.set_startup_update_check(true);
+        // Preferences ▸ Timestamp server can be reached (only once one is set, and only to sign).
+        app.set_timestamp_transport(std::sync::Arc::new(tsa::post));
         app.printer_source = Some(pdfcraft_ui_egui::system_printers());
         app.two_sided_source = Some(pdfcraft_ui_egui::system_two_sided());
         app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));
