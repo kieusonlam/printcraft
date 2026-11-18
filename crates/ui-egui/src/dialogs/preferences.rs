@@ -898,8 +898,45 @@ fn card_fill_and_sign(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx:
 /// The RFC 3161 server that stamps digital signatures (hidden where the build can't reach one).
 fn timestamp_server(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, ctx: &mut PrefSearchContext) {
     ctx.label(ui, tl!("Digital signatures"), theme::semibold(12.5), t.text);
+    // A known server is picked from the list; any other is typed in Address.
+    let none = tl!("None (this computer's clock)");
+    let custom = tl!("Other server…");
     ui.horizontal(|ui| {
         let label = ctx.label_primary(ui, tl!("Timestamp server"), t);
+        let preset = crate::timestamp_preset(&app.timestamp_server);
+        let selected = match preset {
+            Some(p) => p.name,
+            None if app.timestamp_server.trim().is_empty() => none,
+            None => custom,
+        };
+        craft_ui::ComboBox::from_id_salt("timestamp-server")
+            .selected_text(selected)
+            .width(320.0)
+            .show_ui(ui, |ui| {
+                if ui.selectable_label(app.timestamp_server.trim().is_empty(), none).clicked() {
+                    app.timestamp_server.clear();
+                    ui.close();
+                }
+                for p in crate::TIMESTAMP_PRESETS {
+                    if ui.selectable_label(preset == Some(p), p.name).on_hover_text(p.url).clicked() {
+                        app.timestamp_server = p.url.to_string();
+                        ui.close();
+                    }
+                }
+                let typed = preset.is_none() && !app.timestamp_server.trim().is_empty();
+                if ui.selectable_label(typed, custom).clicked() {
+                    // Start from an empty Address rather than a preset's.
+                    if preset.is_some() {
+                        app.timestamp_server.clear();
+                    }
+                    ui.close();
+                }
+            })
+            .response
+            .labelled_by(label.id);
+    });
+    ui.horizontal(|ui| {
+        let label = ctx.label_primary(ui, tl!("Address"), t);
         ui.add(
             crate::widgets::line(&mut app.timestamp_server).hint_text("https://").desired_width(320.0).char_limit(crate::MAX_TIMESTAMP_SERVER_CHARS),
         )

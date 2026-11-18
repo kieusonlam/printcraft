@@ -19,6 +19,32 @@ pub type TimestampTransport = Arc<dyn Fn(&str, &[u8]) -> Result<Vec<u8>, String>
 /// The longest server address kept (typed or restored).
 pub const MAX_TIMESTAMP_SERVER_CHARS: usize = 2048;
 
+/// A public RFC 3161 server offered in Preferences, so it needn't be typed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TimestampPreset {
+    /// Who runs it, as shown in the list (a proper name: not translated).
+    pub name: &'static str,
+    pub url: &'static str,
+}
+
+/// Servers that answer anonymous RFC 3161 requests over plain HTTP (checked 2026-11-18 with a
+/// SHA-256 request: status granted, a token signed by a certificate whose extended key usage is
+/// time stamping). The Vietnamese Government CA's server comes first; both of its addresses reach
+/// the same server ("Máy chủ cấp dấu thời gian 02", under "RootCA chuyên dùng Chính phủ G2").
+/// `tsa::tests::every_preset_answers_with_a_valid_token` in the desktop app checks them again.
+pub const TIMESTAMP_PRESETS: &[TimestampPreset] = &[
+    TimestampPreset { name: "Ban Cơ yếu Chính phủ (VGCA)", url: "http://ca.gov.vn/tsa" },
+    TimestampPreset { name: "Ban Cơ yếu Chính phủ (VGCA), tsa.ca.gov.vn", url: "http://tsa.ca.gov.vn" },
+    TimestampPreset { name: "DigiCert", url: "http://timestamp.digicert.com" },
+    TimestampPreset { name: "Sectigo", url: "http://timestamp.sectigo.com" },
+];
+
+/// The preset that `text` names, if any (compared as [`timestamp_server`] keeps it).
+pub fn timestamp_preset(text: &str) -> Option<&'static TimestampPreset> {
+    let url = timestamp_server(text).ok().flatten()?;
+    TIMESTAMP_PRESETS.iter().find(|p| p.url.eq_ignore_ascii_case(&url))
+}
+
 /// The server address to use, trimmed; `None` for an empty box. Only `http://` and `https://`
 /// addresses, as RFC 3161 servers are reached over HTTP (§3.4). Restored settings are untrusted.
 pub fn timestamp_server(text: &str) -> Result<Option<String>, &'static str> {
@@ -84,6 +110,20 @@ mod tests {
             assert!(timestamp_server(bad).is_err(), "{bad}");
         }
         assert!(timestamp_server(&format!("https://{}", "a".repeat(MAX_TIMESTAMP_SERVER_CHARS))).is_err());
+    }
+
+    #[test]
+    fn presets_are_valid_distinct_servers_and_are_recognised() {
+        for p in TIMESTAMP_PRESETS {
+            assert_eq!(timestamp_server(p.url), Ok(Some(p.url.to_string())), "{}", p.name);
+            assert_eq!(timestamp_preset(&format!(" {} ", p.url.to_uppercase())), Some(p));
+        }
+        let mut urls: Vec<&str> = TIMESTAMP_PRESETS.iter().map(|p| p.url).collect();
+        urls.sort_unstable();
+        urls.dedup();
+        assert_eq!(urls.len(), TIMESTAMP_PRESETS.len());
+        assert_eq!(timestamp_preset("https://tsa.example.vn"), None);
+        assert_eq!(timestamp_preset(""), None);
     }
 
     #[test]

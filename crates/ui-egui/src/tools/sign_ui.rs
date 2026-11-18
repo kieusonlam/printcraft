@@ -26,7 +26,7 @@ use dialog::graphic_of;
 pub(crate) use dialog::{appearance_labels, dialog, status_captions};
 pub(crate) use panel::{CertAction, banner, cert_viewer, panel, signature_status_style};
 pub use panel::{CertTab, CertViewer, PanelAction, certificate_pem};
-pub use timestamp::{MAX_TIMESTAMP_SERVER_CHARS, TimestampTransport, timestamp_server};
+pub use timestamp::{MAX_TIMESTAMP_SERVER_CHARS, TIMESTAMP_PRESETS, TimestampPreset, TimestampTransport, timestamp_preset, timestamp_server};
 
 /// A digital ID the app knows about (Acrobat: Digital ID files). The file stays where it is;
 /// its password is asked for at each signing.

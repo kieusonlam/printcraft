@@ -105,4 +105,23 @@ mod tests {
         assert!(super::post("file:///etc/passwd", b"x").is_err());
         assert!(super::post("", b"x").is_err());
     }
+
+    /// The servers Preferences offers still answer the request signing sends, with a token the
+    /// sign crate accepts from a certificate issued for time stamping. On the network, so not in
+    /// the default run: `cargo test -p pdfcraft every_preset -- --ignored`.
+    #[test]
+    #[ignore = "reaches the public timestamp servers"]
+    fn every_preset_answers_with_a_valid_token() {
+        use pdfcraft_engine::sign::{DigestAlg, TimestampQuery, timestamp};
+        for p in pdfcraft_ui_egui::TIMESTAMP_PRESETS {
+            let mut q = TimestampQuery::new(DigestAlg::Sha256, DigestAlg::Sha256.digest(&[p.url.as_bytes()])).unwrap();
+            q.nonce = Some(0x5eed_1234_5678);
+            let reply = super::post(p.url, &q.encode().unwrap()).unwrap_or_else(|e| panic!("{}: {e}", p.name));
+            let token = timestamp::parse_response(&reply, &q).unwrap_or_else(|e| panic!("{}: {e}", p.name));
+            let cert = token.signer_certificate().unwrap_or_else(|| panic!("{}: no TSA certificate", p.name));
+            assert!(cert.may_timestamp(), "{}: the certificate is not for time stamping", p.name);
+            assert!(cert.valid_at(token.gen_time), "{}: the certificate has expired", p.name);
+            println!("{} | {} | {} | {}", p.name, p.url, token.gen_time, cert.subject.common_name().unwrap_or("?"));
+        }
+    }
 }
